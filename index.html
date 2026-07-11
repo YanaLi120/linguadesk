@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinguaDesk · 翻译工作台</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🌐</span>
+      <div>
+        <div class="brand-name">LinguaDesk</div>
+        <div class="brand-sub">Translate · Memory · Subtitle</div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="settings">API 设置</button>
+      <button class="tab" data-view="translate">翻译</button>
+      <button class="tab" data-view="file">文件翻译</button>
+      <button class="tab" data-view="memory">翻译记忆库</button>
+      <button class="tab" data-view="corpus">语料库</button>
+      <button class="tab" data-view="subtitle">实时字幕</button>
+      <button class="tab" data-view="export">导入 / 导出</button>
+    </nav>
+    <div class="status" id="statusBar"><span class="dot"></span><span id="statusText">就绪</span></div>
+  </header>
+
+  <main class="content">
+    <!-- ============ API 设置 ============ -->
+    <section class="view active" id="view-settings">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>翻译引擎</h2>
+          <button class="btn primary" id="addEngineBtn">+ 添加引擎</button>
+        </div>
+        <p class="hint">可添加任意兼容的翻译服务。填 Base URL + Key + 模型名即可，支持 OpenAI 兼容接口及主流厂商。</p>
+        <div id="engineList" class="card-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>语音识别 (ASR)</h2>
+          <button class="btn primary" id="addAsrBtn">+ 添加 ASR 引擎</button>
+        </div>
+        <p class="hint">默认使用浏览器内置 Web Speech API（免费、无需配置）。也可添加云端 ASR（如讯飞/Whisper 兼容服务）。</p>
+        <div id="asrList" class="card-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 翻译 ============ -->
+    <section class="view" id="view-translate">
+      <div class="translate-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>原文</h2>
+            <select id="srcLang" class="lang-select"></select>
+          </div>
+          <textarea id="srcText" placeholder="输入要翻译的文本…（Ctrl+Enter 翻译）"></textarea>
+          <div class="row">
+            <select id="translateEngine" class="engine-select"></select>
+            <button class="btn primary" id="doTranslate">翻译</button>
+            <button class="btn" id="swapLang">⇄ 互换</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>译文</h2>
+            <select id="tgtLang" class="lang-select"></select>
+          </div>
+          <textarea id="tgtText" placeholder="译文将显示在这里…"></textarea>
+          <div class="row">
+            <button class="btn" id="copyTgt">复制</button>
+            <button class="btn primary" id="savePair">存入记忆库</button>
+          </div>
+          <div id="fuzzyHint" class="fuzzy-hint" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 文件翻译 ============ -->
+    <section class="view" id="view-file">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>文件翻译</h2>
+          <div class="row">
+            <select id="fileSrcLang" class="lang-select"></select>
+            <button class="btn" id="fileSwap">⇄</button>
+            <select id="fileTgtLang" class="lang-select"></select>
+            <select id="fileEngine" class="engine-select"></select>
+          </div>
+        </div>
+        <p class="hint">支持 PDF / TXT / MD / DOCX。上传后自动提取文本并分段，可一键逐段翻译；译文可导出双语对照（用浏览器打印为 PDF）或存入记忆库。</p>
+        <div class="row" style="margin-bottom:12px">
+          <label class="btn primary">选择文件<input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" hidden /></label>
+          <button class="btn primary" id="fileTranslateAll" disabled>开始翻译</button>
+          <button class="btn" id="fileExportHtml" disabled>导出双语 HTML</button>
+          <button class="btn" id="fileExportTxt" disabled>导出译文 TXT</button>
+          <button class="btn" id="fileSaveMem" disabled>存入记忆库</button>
+          <span id="fileProgress" class="hint" style="margin:0"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th style="width:48%">原文</th><th>译文</th></tr></thead>
+            <tbody id="fileBody"></tbody>
+          </table>
+        </div>
+        <div id="fileEmpty" class="empty">尚未上传文件。</div>
+      </div>
+    </section>
+
+    <!-- ============ 翻译记忆库 ============ -->
+    <section class="view" id="view-memory">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>翻译记忆库 (TM)</h2>
+          <div class="row">
+            <input type="search" id="memorySearch" class="search" placeholder="搜索原文 / 译文…" />
+            <button class="btn" id="refreshMemory">刷新</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>原文</th><th>译文</th><th>方向</th><th>时间</th><th>操作</th></tr>
+            </thead>
+            <tbody id="memoryBody"></tbody>
+          </table>
+        </div>
+        <div id="memoryEmpty" class="empty">暂无记忆条目，去「翻译」页翻译并存入吧。</div>
+      </div>
+    </section>
+
+    <!-- ============ 语料库 ============ -->
+    <section class="view" id="view-corpus">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>语料库 (Corpus)</h2>
+          <button class="btn primary" id="addCorpusBtn">+ 添加条目</button>
+        </div>
+        <p class="hint">语料库用于存放参考文本 / 术语 / 平行语料，可在翻译时作为上下文参考。</p>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>文本</th><th>语言</th><th>标签</th><th>时间</th><th>操作</th></tr>
+            </thead>
+            <tbody id="corpusBody"></tbody>
+          </table>
+        </div>
+        <div id="corpusEmpty" class="empty">语料库为空。</div>
+      </div>
+    </section>
+
+    <!-- ============ 实时字幕 ============ -->
+    <section class="view" id="view-subtitle">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>实时字幕</h2>
+          <div class="row">
+            <select id="asrSelect" class="engine-select"></select>
+            <select id="subtitleEngine" class="engine-select"></select>
+            <button class="btn primary" id="startSub">▶ 开始</button>
+            <button class="btn danger" id="stopSub" disabled>■ 停止</button>
+          </div>
+        </div>
+        <p class="hint">识别语言以「翻译」页的源语言为准。识别结果实时显示，可一键翻译并叠加为双语字幕。</p>
+        <div class="subtitle-stage" id="subtitleStage">
+          <div class="sub-line" id="subSource"><span class="sub-label">识别</span><span class="sub-text">等待开始…</span></div>
+          <div class="sub-line" id="subTarget"><span class="sub-label">译文</span><span class="sub-text"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 导入 / 导出 ============ -->
+    <section class="view" id="view-export">
+      <div class="panel">
+        <h2>翻译记忆库</h2>
+        <div class="row">
+          <button class="btn primary" id="exportTmx">导出 TMX</button>
+          <button class="btn primary" id="exportCsv">导出 CSV</button>
+          <label class="btn">导入 TMX/CSV<input type="file" id="importFile" accept=".tmx,.csv" hidden /></label>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>语料库</h2>
+        <div class="row">
+          <button class="btn primary" id="exportCorpus">导出 CSV</button>
+          <label class="btn">导入 CSV<input type="file" id="importCorpus" accept=".csv" hidden /></label>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>数据备份</h2>
+        <p class="hint">将所有数据导出为 JSON 以便迁移或备份。</p>
+        <div class="row">
+          <button class="btn" id="exportAllJson">导出全部(JSON)</button>
+          <label class="btn">导入备份(JSON)<input type="file" id="importAll" accept=".json" hidden /></label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 通用弹窗 -->
+  <div class="modal-mask" id="modalMask" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <!-- PDF / DOCX 解析库（CDN） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
